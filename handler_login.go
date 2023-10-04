@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -12,7 +13,17 @@ type User struct {
 }
 
 var userDB = map[string]string{ 
-	"exampleUser": "examplePassword", // This is just an example, storing plaintext passwords is a bad idea.
+	"exampleUser": hashPassword("examplePassword"), // This is just an example
+}
+
+func hashPassword(password string) string {
+	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes)
+}
+
+func checkPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
 
 func handlerLogin(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +37,7 @@ func handlerLogin(w http.ResponseWriter, r *http.Request) {
 
 	expectedPassword, ok := userDB[user.Username]
 
-	if !ok || expectedPassword != user.Password {
+	if !ok || !checkPasswordHash(user.Password, expectedPassword) {
 		w.WriteHeader(http.StatusUnauthorized)
 		fmt.Fprint(w, "Invalid username or password\n")
 		return
